@@ -1,106 +1,105 @@
-# Обнаружение сетевых вторжений на NSL-KDD
+# Network Intrusion Detection on NSL-KDD
 
-English version: [README.en.md](README.en.md).
+**English** · [Русский](README.ru.md)
 
-Учебный ML-проект для портфолио: классификация сетевых соединений как нормальных
-или атак с использованием датасета NSL-KDD.
+A portfolio ML project: classifying network connections as normal or attacks
+using the NSL-KDD benchmark dataset.
 
-## Датасет
+## Dataset
 
-NSL-KDD — улучшенная версия KDD Cup 1999. Задача: по 41 характеристике сетевого
-соединения определить тип трафика.
+NSL-KDD is an improved version of the KDD Cup 1999 intrusion detection dataset.
 
-- Обучающий набор: KDDTrain+ (125 973 записи)
-- Тестовый набор: KDDTest+ (22 544 записи)
-- 3 категориальных признака: `protocol_type`, `service`, `flag`
-- 38 числовых признаков
-- 5 классов: normal, dos, probe, r2l, u2r
+- Training set: KDDTrain+ (125 973 records)
+- Test set: KDDTest+ (22 544 records)
+- 3 categorical features: `protocol_type`, `service`, `flag`
+- 38 numeric features
+- 5 classes: normal, dos, probe, r2l, u2r
 
-Тестовый набор специально сложнее обучающего — содержит варианты атак, не встречавшихся
-при обучении. Именно поэтому точность на тесте ниже CV-точности на обучении: это честный
-результат, а не ошибка.
+The test set is intentionally harder — it contains attack variants not seen during training.
+Train CV accuracy is higher than test accuracy, and that gap is expected and honest.
 
-## Подход
+## Approach
 
-Предобработка:
-- one-hot кодирование категориальных признаков (итого 122 признака после кодирования)
-- StandardScaler для числовых столбцов
-- Выравнивание столбцов train/test (в тесте могут отсутствовать редкие категории сервисов)
+Preprocessing:
+- One-hot encode categorical features (122 total features after encoding)
+- StandardScaler on numeric columns
+- Align train/test columns — rare service categories may be absent from test
 
-Модели: LogisticRegression (baseline), RandomForest, GradientBoosting.  
-Две задачи: бинарная (normal vs attack) и многоклассовая (normal / dos / probe / r2l / u2r).
+Models: LogisticRegression (baseline), RandomForest, GradientBoosting.  
+Two tasks: binary (normal vs attack) and multiclass (normal / dos / probe / r2l / u2r).
 
-## Результаты
+## Results
 
-### Бинарная классификация (normal vs attack)
+### Binary (normal vs attack)
 
-| Модель              | CV acc (train)    | Test acc | F1-macro | ROC-AUC |
+| Model               | CV acc (train)    | Test acc | F1-macro | ROC-AUC |
 |---------------------|-------------------|----------|----------|---------|
 | LogisticRegression  | 0.9728 +/- 0.0001 | 0.7535   | 0.7531   | 0.7921  |
 | RandomForest        | 0.9989 +/- 0.0002 | 0.7659   | 0.7647   | 0.9600  |
 | GradientBoosting    | 0.9955 +/- 0.0003 | 0.8073   | 0.8071   | 0.9447  |
 
-### Многоклассовая классификация (5 классов)
+### Multiclass (5 classes)
 
-| Модель              | Test acc | F1-macro | F1 dos | F1 probe | F1 r2l | F1 u2r |
+| Model               | Test acc | F1-macro | F1 dos | F1 probe | F1 r2l | F1 u2r |
 |---------------------|----------|----------|--------|----------|--------|--------|
 | LogisticRegression  | 0.7603   | 0.5715   | 0.8907 | 0.8194   | 0.0277 | 0.3448 |
 | RandomForest        | 0.7526   | 0.4863   | 0.8958 | 0.6927   | 0.0320 | 0.0286 |
 | GradientBoosting    | 0.7727   | 0.6177   | 0.8943 | 0.7717   | 0.1867 | 0.4421 |
 
-Лучшая модель по F1-macro на многоклассовой задаче — GradientBoosting (0.6177).
-Лучшая модель по ROC-AUC на бинарной задаче — RandomForest (0.9600).
+Best F1-macro on multiclass: GradientBoosting (0.6177).  
+Best ROC-AUC on binary: RandomForest (0.9600).
 
-### Графики
+### Plots
 
-Важность признаков (RandomForest) — какие характеристики соединения решают:
+Feature importances (RandomForest) — which connection attributes drive the decision:
 
-![Важность признаков](figures/feature_importances_rf.png)
+![Feature importances](figures/feature_importances_rf.png)
 
-Матрица ошибок, GradientBoosting, многоклассовая задача:
+Confusion matrix, GradientBoosting, multiclass:
 
-![Матрица ошибок](figures/cm_multi_gradientboosting.png)
+![Confusion matrix](figures/cm_multi_gradientboosting.png)
 
-## Ограничения
+## Limitations
 
-- R2L (~995 записей в train) и U2R (~52 записи) крайне редки. F1 для U2R у RF близок к нулю —
-  это прямое следствие нехватки обучающих примеров, а не ошибка реализации.
-- KDDTest+ содержит атаки, не встречавшиеся при обучении: обобщение принципиально ограничено.
-- Для улучшения: SMOTE или class_weight для дисбаланса классов; XGBoost/LightGBM;
-  двухэтапный классификатор (сначала бинарная задача, затем определение типа атаки).
+- R2L (~995 train samples) and U2R (~52 train samples) are severely underrepresented.
+  U2R F1 for RandomForest is near zero — a direct consequence of too few training examples,
+  not an implementation error.
+- KDDTest+ includes attack variants not seen in training, so generalization is fundamentally limited.
+- Improvements: SMOTE or class_weight for imbalance; XGBoost/LightGBM; two-stage classifier
+  (binary normal/attack first, then attack-type classification).
 
-## Как воспроизвести
+## How to Reproduce
 
 ```bash
 cd ids-nsl-kdd
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python src/train.py          # скачает данные автоматически, обучит и сохранит метрики
+python src/train.py       # downloads data automatically, trains, saves metrics
 ```
 
-Jupyter-ноутбук:
+Jupyter notebook:
 
 ```bash
 python -m ipykernel install --user --name ids-nsl-kdd --display-name "IDS NSL-KDD (venv)"
 jupyter notebook notebook/ids.ipynb
 ```
 
-## Структура проекта
+## Project Layout
 
 ```
 ids-nsl-kdd/
-├── data/               # сырые данные (не коммитятся)
-├── figures/            # PNG-графики (матрицы ошибок, F1-бары, важность признаков)
+├── data/               # raw data (not committed)
+├── figures/            # PNG plots (confusion matrices, F1 bars, feature importances)
 ├── notebook/
-│   └── ids.ipynb       # Jupyter-ноутбук: EDA, препроцессинг, модели, обсуждение
+│   └── ids.ipynb       # narrative notebook: EDA + preprocessing + models + discussion
 ├── src/
 │   ├── __init__.py
-│   ├── data.py         # загрузка, препроцессинг
-│   └── train.py        # обучение, оценка, сохранение фигур и metrics.json
-├── metrics.json        # все численные результаты
+│   ├── data.py         # download, load, preprocess
+│   └── train.py        # train, evaluate, save figures and metrics.json
+├── metrics.json        # all numeric results
 ├── requirements.txt
 ├── .gitignore
-├── README.md           # этот файл
-└── README.en.md        # English version
+├── README.md           # this file (English)
+└── README.ru.md        # Russian README
 ```
